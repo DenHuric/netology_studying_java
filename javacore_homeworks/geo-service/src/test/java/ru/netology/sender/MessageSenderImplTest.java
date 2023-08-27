@@ -1,0 +1,58 @@
+package ru.netology.sender;
+
+
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
+import ru.netology.entity.Country;
+import ru.netology.entity.Location;
+import ru.netology.geo.GeoService;
+import ru.netology.geo.GeoServiceImpl;
+import ru.netology.i18n.LocalizationService;
+import ru.netology.i18n.LocalizationServiceImpl;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class MessageSenderImplTest {
+    static private GeoService geoService;
+    static private LocalizationService localizationService;
+    static private MessageSender messageSender;
+    static private Map<String, String> headers = new HashMap<String, String>();
+
+    @BeforeAll
+    static void prepareData() {
+        geoService = Mockito.mock(GeoServiceImpl.class);
+        Mockito.when(geoService.byIp(Mockito.startsWith("172.")))
+                .thenReturn(new Location(null, Country.RUSSIA, null, 0));
+        Mockito.when(geoService.byIp(Mockito.startsWith("96.")))
+                .thenReturn(new Location(null, Country.USA, null, 0));
+
+        localizationService = Mockito.mock(LocalizationServiceImpl.class);
+        Mockito.when(localizationService.locale(Country.RUSSIA))
+                .thenReturn("Добро пожаловать");
+        Mockito.when(localizationService.locale(Country.USA))
+                .thenReturn("Welcome");
+
+        messageSender = new MessageSenderImpl(geoService, localizationService);
+
+    }
+
+    private static Stream<Arguments> source() {
+        return Stream.of(Arguments.of("172.", "Добро пожаловать"),
+                Arguments.of("96.", "Welcome"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("source")
+    void sendTest(String ipAddress, String expected) {
+        headers.put(MessageSenderImpl.IP_ADDRESS_HEADER, ipAddress);
+        String actual = messageSender.send(headers);
+        assertEquals(expected, actual);
+    }
+}
